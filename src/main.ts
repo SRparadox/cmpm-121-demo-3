@@ -1,30 +1,24 @@
 import "./style.css";
 
-// DOM Variables
-const buttons = new Map<string, HTMLButtonElement>();
+//Title of the App
+const app: HTMLDivElement = document.querySelector("#app")!;
 
-// Function to create and add a button
-function createButton() {
-  // Create a new button element
-  const button = document.createElement('button');
-  button.textContent = 'Click Me';
+const gameName = "Demo3";
+document.title = gameName;
 
-  // Add an event listener to alert when clicked
-  button.addEventListener('click', () => {
-    alert('You clicked the button!');
-  });
-
-  // Find the container to append the button
-  const container = document.getElementById('button-container');
-  if (container) {
-    container.appendChild(button);
+// Button HERE
+document.addEventListener("DOMContentLoaded", () => {
+  const button = document.getElementById("myButton");
+  if (button) {
+    button.addEventListener("click", () => {
+      console.log("Button was clicked!");
+      alert("Button clicked!");
+    });
   } else {
-    console.error('Container element not found!');
+    console.error("Button not found!");
   }
+});
 
-  // Optionally add the button to the buttons map
-  buttons.set('myButton', button);
-}
-
-// Call the function to create and add the button
-createButton();
+const header = document.createElement("h1");
+header.innerHTML = gameName;
+app.append(header);
