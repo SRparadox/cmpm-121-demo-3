@@ -41,100 +41,156 @@ leaflet
 
 // Define a custom icon for the player making it red
 const redIcon = leaflet.icon({
-    iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
-    iconSize: [25, 41], // Size of the icon
-    iconAnchor: [12, 41], // Point of the icon which will correspond to marker's location
-    popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
-    shadowSize: [41, 41], // Size of the shadow
+  iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+  shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
 });
-  
+
 // Add a marker to represent the player with the red icon
 const playerMarker = leaflet.marker(OAKES_CLASSROOM, { icon: redIcon });
 playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
-
-// Display the player's points
-let playerCoins = [];
+// Display the player's coins
+let playerCoins: Array<{ x: number; y: number }> = [];
 let playerPoints = playerCoins.length;
-const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
-statusPanel.innerHTML = "No points yet...";
+const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
+statusPanel.innerHTML = "No coins yet...";
 
-
-//Function to generate caches, via Luck(position) to make a determetically random position for caches
-//Creates a grid of all the caches
-function CacheGrid(){
+// Function to generate caches
+function CacheGrid() {
     for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
         for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-            // If location i,j is lucky enough, spawn a cache!
-            const currentCords = `${i},${j}`;
-            const determenisticRandom = luck(currentCords);            
+        const currentCords = `${i},${j}`;
+        const deterministicRandom = luck(currentCords);
 
-            if (determenisticRandom < CACHE_SPAWN_PROBABILITY) {
-                spawnMarker(i, j);
-            }
+        if (deterministicRandom < CACHE_SPAWN_PROBABILITY) {
+            spawnMarker(i, j);
+        }
         }
     }
 }
 
+//Spawn a marker at the location of the coords provided. It displays a pop up with the retrieve and deposit button and displays local coins
 function spawnMarker(i: number, j: number) {
-    // Calculate the new latitude and longitude for the grid position
     const lat = OAKES_CLASSROOM.lat + i * TILE_DEGREES;
     const lng = OAKES_CLASSROOM.lng + j * TILE_DEGREES;
     const position = leaflet.latLng(lat, lng);
-    
-    //Local Coin Amounts
-    let localCoins = [];
-    generateLocalCoins(i,j,localCoins);
-    
-    // Create a marker for the calculated position
+
+    let localCoins: Array<{ x: number; y: number }> = [];
+    generateLocalCoins(i, j, localCoins);
+
     const cacheMarker = leaflet.marker(position);
 
-    // Create a custom popup with buttons
     const popupContent = document.createElement("div");
+    const coinCountDisplay = document.createElement("p");
+    const coinListDisplay = document.createElement("p"); // For displaying coin coordinates
     const retrieveButton = document.createElement("button");
     const depositButton = document.createElement("button");
 
     retrieveButton.textContent = "Retrieve";
     depositButton.textContent = "Deposit";
+    coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
 
-    // Bind a tooltip or popup to the marker
-    cacheMarker.bindTooltip(`Coin at (${i}, ${j})`);
+    // Display the coordinates of the coins
+    const updateCoinListDisplay = () => {
+        if (localCoins.length === 0) {
+            coinListDisplay.textContent = "No coins in this cache.";
+        } else {
+            coinListDisplay.textContent = `Coin Coordinates: ${localCoins
+                .map((coin) => `(${coin.x}, ${coin.y})`)
+                .join(", ")}`;
+        }
+    };
+    updateCoinListDisplay();
 
-    // Add event listeners to the buttons
     retrieveButton.addEventListener("click", () => {
-        retrieveCoin();
+        retrieveCoin(i, j, localCoins);
+        coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
+        updateCoinListDisplay();
     });
 
     depositButton.addEventListener("click", () => {
-        depositCoin();
+        depositCoin(i, j, localCoins);
+        coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
+        updateCoinListDisplay();
     });
 
-    // Append buttons to the popup content
+    popupContent.appendChild(coinCountDisplay);
+    popupContent.appendChild(coinListDisplay);
     popupContent.appendChild(retrieveButton);
     popupContent.appendChild(depositButton);
 
-    // Bind the custom popup to the marker
     cacheMarker.bindPopup(popupContent);
 
-    // Add the marker to the map
+    cacheMarker.on("popupopen", () => {
+        coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
+        updateCoinListDisplay();
+    });
+
     cacheMarker.addTo(map);
 }
 
-function retrieveCoin(){
-    //Retrieve the (i,j) from LocalCoins and give it to playerCoins array
-    //-1 localcoin (i,j) coin and +1 Playercoin and playerCoin[]
+//Function to give the coin of a local marker to the player
+function retrieveCoin(i: number, j: number, localCoins: Array<{ x: number; y: number }>) {
+    const coinIndex = localCoins.findIndex((coin) => coin.x === i && coin.y === j);
+    if (coinIndex !== -1) {
+        const [retrievedCoin] = localCoins.splice(coinIndex, 1);
+        playerCoins.push(retrievedCoin);
+        playerPoints = playerCoins.length;
+        updateStatusPanel();
+    } else {
+        alert("No coins available to retrieve at this cache.");
+    }
 }
 
-function depositCoin(){
-    //Retrieve the (i,j) from LocalCoins and give it to playerCoins
-    //-1 playerCoin, and add localCoins[(i,j)]
+//Function gives a player coin to the local marker's coins
+function depositCoin(i: number, j: number, localCoins: Array<{ x: number; y: number }>) {
+    if (playerCoins.length > 0) {
+        // Remove a coin from the player's collection
+        const [depositedCoin] = playerCoins.splice(0, 1);
+        // Add the coin to the cache's local coins without altering its coordinates
+        localCoins.push(depositedCoin);
+        // Update player points and status panel
+        playerPoints = playerCoins.length;
+        updateStatusPanel();
+    } else {
+        alert("You have no coins to deposit.");
+    }
 }
 
-function generateLocalCoins(i,j,localCoins){
-    //Using luck to spawn an amount of coins, each coin is (i,j), into the local array
+//Using luck to generate a random amount of local coins
+function generateLocalCoins(i: number, j: number, localCoins: Array<{ x: number; y: number }>) {
+    const temp1 = Math.floor(luck([i, j, "key"].toString()) * 21);
+    for (let count = 0; count < temp1; count++) {
+        localCoins.push({ x: i, y: j });
+    }
 }
 
-//Call Functions
-CacheGrid(); 
+//Update the UI for coins
+function updateStatusPanel() {
+    if (playerPoints > 0) {
+        statusPanel.innerHTML = `You have ${playerPoints} coin(s).`;
+        displayCoins(playerCoins);
+    } else {
+        statusPanel.innerHTML = "No coins yet...";
+    }
+}
+
+//Display the array of coins
+function displayCoins(coins: Array<{ x: number; y: number }>) {
+    if (coins.length === 0) {
+        statusPanel.innerHTML = "No coins available to display.";
+        return;
+    }
+    const coinList = coins
+        .map((coin) => `(${coin.x}, ${coin.y})`)
+        .join(", ");
+    statusPanel.innerHTML = `Coins: ${coinList}`;
+}
+
+// Call Functions
+CacheGrid();
