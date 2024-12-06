@@ -41,10 +41,8 @@ leaflet
 
 // Define a custom icon for the player making it red
 const redIcon = leaflet.icon({
-    iconUrl: 
-    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-    shadowUrl: 
-    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+    iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
     iconSize: [25, 41], // Size of the icon
     iconAnchor: [12, 41], // Point of the icon which will correspond to marker's location
     popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
@@ -80,8 +78,20 @@ function CacheGrid(){
     }
 }
 
-function spawnMarker(i: number, j: number){
+function spawnMarker(i: number, j: number) {
+    // Calculate the new latitude and longitude for the grid position
+    const lat = OAKES_CLASSROOM.lat + i * TILE_DEGREES;
+    const lng = OAKES_CLASSROOM.lng + j * TILE_DEGREES;
+    const position = leaflet.latLng(lat, lng);
 
+    // Create a marker for the calculated position
+    const cacheMarker = leaflet.marker(position);
+
+    // Optionally, bind a tooltip or popup to the marker
+    cacheMarker.bindTooltip(`Coin at (${i}, ${j})`);
+
+    // Add the marker to the map
+    cacheMarker.addTo(map);
 }
 
 //Call Functions
