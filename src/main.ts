@@ -41,8 +41,10 @@ leaflet
 
 // Define a custom icon for the player making it red
 const redIcon = leaflet.icon({
-    iconUrl: "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
-    shadowUrl: "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
+    iconUrl: 
+    "https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-red.png",
+    shadowUrl: 
+    "https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png",
     iconSize: [25, 41], // Size of the icon
     iconAnchor: [12, 41], // Point of the icon which will correspond to marker's location
     popupAnchor: [1, -34], // Point from which the popup should open relative to the iconAnchor
@@ -56,11 +58,31 @@ playerMarker.addTo(map);
 
 
 // Display the player's points
-let playerPoints = 0;
+let playerCoins = [];
+let playerPoints = playerCoins.length;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!; // element `statusPanel` is defined in index.html
 statusPanel.innerHTML = "No points yet...";
 
-//Function to generate caches, via Luck(position) to make a position for caches
+
+//Function to generate caches, via Luck(position) to make a determetically random position for caches
 //Creates a grid of all the caches
 function CacheGrid(){
+    for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
+        for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
+            // If location i,j is lucky enough, spawn a cache!
+            const currentCords = `${i},${j}`;
+            const determenisticRandom = luck(currentCords);            
+
+            if (determenisticRandom < CACHE_SPAWN_PROBABILITY) {
+                spawnMarker(i, j);
+            }
+        }
+    }
 }
+
+function spawnMarker(i: number, j: number){
+
+}
+
+//Call Functions
+CacheGrid(); 
