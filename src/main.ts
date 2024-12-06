@@ -83,15 +83,57 @@ function spawnMarker(i: number, j: number) {
     const lat = OAKES_CLASSROOM.lat + i * TILE_DEGREES;
     const lng = OAKES_CLASSROOM.lng + j * TILE_DEGREES;
     const position = leaflet.latLng(lat, lng);
-
+    
+    //Local Coin Amounts
+    let localCoins = [];
+    generateLocalCoins(i,j,localCoins);
+    
     // Create a marker for the calculated position
     const cacheMarker = leaflet.marker(position);
 
-    // Optionally, bind a tooltip or popup to the marker
+    // Create a custom popup with buttons
+    const popupContent = document.createElement("div");
+    const retrieveButton = document.createElement("button");
+    const depositButton = document.createElement("button");
+
+    retrieveButton.textContent = "Retrieve";
+    depositButton.textContent = "Deposit";
+
+    // Bind a tooltip or popup to the marker
     cacheMarker.bindTooltip(`Coin at (${i}, ${j})`);
+
+    // Add event listeners to the buttons
+    retrieveButton.addEventListener("click", () => {
+        retrieveCoin();
+    });
+
+    depositButton.addEventListener("click", () => {
+        depositCoin();
+    });
+
+    // Append buttons to the popup content
+    popupContent.appendChild(retrieveButton);
+    popupContent.appendChild(depositButton);
+
+    // Bind the custom popup to the marker
+    cacheMarker.bindPopup(popupContent);
 
     // Add the marker to the map
     cacheMarker.addTo(map);
+}
+
+function retrieveCoin(){
+    //Retrieve the (i,j) from LocalCoins and give it to playerCoins array
+    //-1 localcoin (i,j) coin and +1 Playercoin and playerCoin[]
+}
+
+function depositCoin(){
+    //Retrieve the (i,j) from LocalCoins and give it to playerCoins
+    //-1 playerCoin, and add localCoins[(i,j)]
+}
+
+function generateLocalCoins(i,j,localCoins){
+    //Using luck to spawn an amount of coins, each coin is (i,j), into the local array
 }
 
 //Call Functions
