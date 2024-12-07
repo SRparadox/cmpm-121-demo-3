@@ -11,13 +11,12 @@ import "./leafletWorkaround.ts";
 // Deterministic random number generator
 import luck from "./luck.ts";
 
-// Define Null Island as the origin
-//const NULL_ISLAND = { lat: 0, lng: 0 };
-
-// Converts geographic coordinates to grid indices.
+// Global latitude and longitude
+const globalLat = 36.98949379578401;
+const globalLng = -122.06277128548504;
 
 // Location of our classroom (as identified on Google Maps)
-const OAKES_CLASSROOM = { lat: 36.98949379578401, lng: -122.06277128548504 };
+const OAKES_CLASSROOM = leaflet.latLng(globalLat, globalLng);
 
 // Tunable gameplay parameters
 const GAMEPLAY_ZOOM_LEVEL = 19;
@@ -67,34 +66,40 @@ let playerPoints = playerCoins.length;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No coins yet...";
 
-// Function to generate caches
+// Updated CacheGrid function to use lat and lng instead of i and j
 function CacheGrid() {
-  for (let i = -NEIGHBORHOOD_SIZE; i < NEIGHBORHOOD_SIZE; i++) {
-    for (let j = -NEIGHBORHOOD_SIZE; j < NEIGHBORHOOD_SIZE; j++) {
-      const currentCords = `${i},${j}`;
+  for (
+    let latOffset = -NEIGHBORHOOD_SIZE;
+    latOffset < NEIGHBORHOOD_SIZE;
+    latOffset++
+  ) {
+    for (
+      let lngOffset = -NEIGHBORHOOD_SIZE;
+      lngOffset < NEIGHBORHOOD_SIZE;
+      lngOffset++
+    ) {
+      const lat = OAKES_CLASSROOM.lat + latOffset * TILE_DEGREES;
+      const lng = OAKES_CLASSROOM.lng + lngOffset * TILE_DEGREES;
+      const currentCords = `${lat.toFixed(6)},${lng.toFixed(6)}`;
       const deterministicRandom = luck(currentCords);
 
       if (deterministicRandom < CACHE_SPAWN_PROBABILITY) {
-        spawnMarker(i, j);
+        spawnMarker(lat, lng);
       }
     }
   }
 }
-
-// Function to spawn a marker at a given location
-function spawnMarker(i: number, j: number) {
-  const lat = OAKES_CLASSROOM.lat + i * TILE_DEGREES;
-  const lng = OAKES_CLASSROOM.lng + j * TILE_DEGREES;
+// Updated spawnMarker function to display global lng and lat as i and j
+function spawnMarker(lat: number, lng: number) {
   const position = leaflet.latLng(lat, lng);
-
-  const localCoins: Array<{ x: number; y: number; pos: number }> = []; // Include position as `pos`
-  generateLocalCoins(i, j, localCoins);
+  const localCoins: Array<{ x: number; y: number; pos: number }> = [];
+  generateLocalCoins(lat, lng, localCoins);
 
   const cacheMarker = leaflet.marker(position);
 
   const popupContent = document.createElement("div");
   const coinCountDisplay = document.createElement("p");
-  const coinListDisplay = document.createElement("p"); // For displaying coin coordinates
+  const coinListDisplay = document.createElement("p");
   const retrieveButton = document.createElement("button");
   const depositButton = document.createElement("button");
 
@@ -102,7 +107,6 @@ function spawnMarker(i: number, j: number) {
   depositButton.textContent = "Deposit";
   coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
 
-  // Display the coordinates of the coins with their positions
   const updateCoinListDisplay = () => {
     if (localCoins.length === 0) {
       coinListDisplay.textContent = "No coins in this cache.";
@@ -117,7 +121,7 @@ function spawnMarker(i: number, j: number) {
   updateCoinListDisplay();
 
   retrieveButton.addEventListener("click", () => {
-    retrieveCoin(i, j, localCoins);
+    retrieveCoin(lat, lng, localCoins);
     coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
     updateCoinListDisplay();
   });
@@ -185,7 +189,7 @@ function generateLocalCoins(
   j: number,
   localCoins: Array<{ x: number; y: number; pos: number }>,
 ) {
-  const temp1 = Math.floor(luck([i, j, "key"].toString()) * 21);
+  const temp1 = Math.floor(luck([i, j, "key"].toString()) * 20) + 1;
   for (let count = 0; count < temp1; count++) {
     localCoins.push({ x: i, y: j, pos: count + 1 }); // Add position as `count + 1`
   }
