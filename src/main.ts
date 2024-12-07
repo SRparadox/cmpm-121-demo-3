@@ -66,8 +66,22 @@ let playerPoints = playerCoins.length;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No coins yet...";
 
-// CacheGrid function to generate grid of caches
-// Used ChatGPT to remplace the formating of all i and j and pos instances with i: 000000,j,00000,serial
+// Flyweight factory to manage unique latitude-longitude pairs
+const LatLngFlyweight = (() => {
+  const cache: Record<string, { lat: number; lng: number }> = {};
+
+  return {
+    get: (lat: number, lng: number) => {
+      const key = `${lat},${lng}`;
+      if (!cache[key]) {
+        cache[key] = { lat, lng };
+      }
+      return cache[key];
+    },
+  };
+})();
+
+// Refactored CacheGrid function to use Flyweight. //Asked BRACE how to use flyweight method without using classes
 function CacheGrid() {
   for (
     let latOffset = -NEIGHBORHOOD_SIZE;
@@ -95,9 +109,9 @@ function CacheGrid() {
   }
 }
 
-// Function to spawn a marker with coins
+// Refactored spawnMarker function to use Flyweight for position
 function spawnMarker(i: number, j: number) {
-  const position = leaflet.latLng(i, j);
+  const position = LatLngFlyweight.get(i, j); // Use Flyweight for coordinates
   const localCoins: Array<{ i: number; j: number; serial: number }> = [];
   generateLocalCoins(i, j, localCoins);
 
@@ -119,7 +133,9 @@ function spawnMarker(i: number, j: number) {
     } else {
       coinListDisplay.textContent = `Coin Coordinates: ${
         localCoins
-          .map((coin) => `{i: ${coin.i}, j: ${coin.j}, serial: ${coin.serial}}`)
+          .map(
+            (coin) => `{i: ${coin.i}, j: ${coin.j}, serial: ${coin.serial}}`,
+          )
           .join(", ")
       }`;
     }
