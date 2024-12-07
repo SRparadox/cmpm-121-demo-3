@@ -11,8 +11,26 @@ import "./leafletWorkaround.ts";
 // Deterministic random number generator
 import luck from "./luck.ts";
 
+// Define Null Island as the origin
+const NULL_ISLAND = { lat: 0, lng: 0 };
+
+// Converts geographic coordinates to grid indices.
+
+function geoToGrid(lat: number, lng: number): { i: number; j: number } {
+    const i = Math.round((lat - NULL_ISLAND.lat) / TILE_DEGREES);
+    const j = Math.round((lng - NULL_ISLAND.lng) / TILE_DEGREES);
+    return { i, j };
+}
+
+// Converts grid indices back to geographic coordinates.
+function gridToGeo(i: number, j: number): { lat: number; lng: number } {
+    const lat = NULL_ISLAND.lat + i * TILE_DEGREES;
+    const lng = NULL_ISLAND.lng + j * TILE_DEGREES;
+    return { lat, lng };
+}
+
 // Location of our classroom (as identified on Google Maps)
-const OAKES_CLASSROOM = leaflet.latLng(36.98949379578401, -122.06277128548504);
+const OAKES_CLASSROOM = { lat: 36.98949379578401, lng: -122.06277128548504 };
 
 // Tunable gameplay parameters
 const GAMEPLAY_ZOOM_LEVEL = 19;
