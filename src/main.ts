@@ -61,12 +61,13 @@ playerMarker.bindTooltip("That's you!");
 playerMarker.addTo(map);
 
 // Display the player's coins
-const playerCoins: Array<{ x: number; y: number; pos: number }> = [];
+const playerCoins: Array<{ i: number; j: number; serial: number }> = [];
 let playerPoints = playerCoins.length;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No coins yet...";
 
-// Updated CacheGrid function to use lat and lng instead of i and j
+// CacheGrid function to generate grid of caches
+// Used ChatGPT to remplace the formating of all i and j and pos instances with i: 000000,j,00000,serial
 function CacheGrid() {
   for (
     let latOffset = -NEIGHBORHOOD_SIZE;
@@ -78,22 +79,27 @@ function CacheGrid() {
       lngOffset < NEIGHBORHOOD_SIZE;
       lngOffset++
     ) {
-      const lat = OAKES_CLASSROOM.lat + latOffset * TILE_DEGREES;
-      const lng = OAKES_CLASSROOM.lng + lngOffset * TILE_DEGREES;
-      const currentCords = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      const i = parseFloat(
+        (OAKES_CLASSROOM.lat + latOffset * TILE_DEGREES).toFixed(4),
+      );
+      const j = parseFloat(
+        (OAKES_CLASSROOM.lng + lngOffset * TILE_DEGREES).toFixed(4),
+      );
+      const currentCords = `${i},${j}`;
       const deterministicRandom = luck(currentCords);
 
       if (deterministicRandom < CACHE_SPAWN_PROBABILITY) {
-        spawnMarker(lat, lng);
+        spawnMarker(i, j);
       }
     }
   }
 }
-// Updated spawnMarker function to display global lng and lat as i and j
-function spawnMarker(lat: number, lng: number) {
-  const position = leaflet.latLng(lat, lng);
-  const localCoins: Array<{ x: number; y: number; pos: number }> = [];
-  generateLocalCoins(lat, lng, localCoins);
+
+// Function to spawn a marker with coins
+function spawnMarker(i: number, j: number) {
+  const position = leaflet.latLng(i, j);
+  const localCoins: Array<{ i: number; j: number; serial: number }> = [];
+  generateLocalCoins(i, j, localCoins);
 
   const cacheMarker = leaflet.marker(position);
 
@@ -113,7 +119,7 @@ function spawnMarker(lat: number, lng: number) {
     } else {
       coinListDisplay.textContent = `Coin Coordinates: ${
         localCoins
-          .map((coin) => `(${coin.x}, ${coin.y}, ${coin.pos})`)
+          .map((coin) => `{i: ${coin.i}, j: ${coin.j}, serial: ${coin.serial}}`)
           .join(", ")
       }`;
     }
@@ -121,7 +127,7 @@ function spawnMarker(lat: number, lng: number) {
   updateCoinListDisplay();
 
   retrieveButton.addEventListener("click", () => {
-    retrieveCoin(lat, lng, localCoins);
+    retrieveCoin(localCoins);
     coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
     updateCoinListDisplay();
   });
@@ -147,18 +153,13 @@ function spawnMarker(lat: number, lng: number) {
   cacheMarker.addTo(map);
 }
 
-//Function to give the coin of a local marker to the player.
+// Retrieve a coin from the local marker
 function retrieveCoin(
-  i: number,
-  j: number,
-  localCoins: Array<{ x: number; y: number; pos: number }>,
+  localCoins: Array<{ i: number; j: number; serial: number }>,
 ) {
-  const coinIndex = localCoins.findIndex((coin) =>
-    coin.x === i && coin.y === j
-  );
-  if (coinIndex !== -1) {
-    const [retrievedCoin] = localCoins.splice(coinIndex, 1); // Retrieve the coin
-    playerCoins.push(retrievedCoin); // Add it to player coins
+  if (localCoins.length > 0) {
+    const [retrievedCoin] = localCoins.splice(0, 1);
+    playerCoins.push(retrievedCoin);
     playerPoints = playerCoins.length;
     updateStatusPanel();
   } else {
@@ -166,16 +167,13 @@ function retrieveCoin(
   }
 }
 
-// Function to deposit a player coin into the local marker's coins
-function depositCoin(localCoins: Array<{ x: number; y: number; pos: number }>) {
+// Deposit a player coin into the local marker's coins
+function depositCoin(
+  localCoins: Array<{ i: number; j: number; serial: number }>,
+) {
   if (playerCoins.length > 0) {
-    // Remove the first coin from the player's collection
     const [depositedCoin] = playerCoins.splice(0, 1);
-
-    // Add the coin to the local cache
     localCoins.push(depositedCoin);
-
-    // Update player points and status panel
     playerPoints = playerCoins.length;
     updateStatusPanel();
   } else {
@@ -183,19 +181,19 @@ function depositCoin(localCoins: Array<{ x: number; y: number; pos: number }>) {
   }
 }
 
-// Updated function to generate local coins with positions
+// Generate coins for a specific marker
 function generateLocalCoins(
   i: number,
   j: number,
-  localCoins: Array<{ x: number; y: number; pos: number }>,
+  localCoins: Array<{ i: number; j: number; serial: number }>,
 ) {
   const temp1 = Math.floor(luck([i, j, "key"].toString()) * 20) + 1;
   for (let count = 0; count < temp1; count++) {
-    localCoins.push({ x: i, y: j, pos: count + 1 }); // Add position as `count + 1`
+    localCoins.push({ i, j, serial: count + 1 });
   }
 }
 
-// Update the UI for coins
+// Update the status panel with player's coins
 function updateStatusPanel() {
   if (playerPoints > 0) {
     statusPanel.innerHTML = `You have ${playerPoints} coin(s).`;
@@ -205,17 +203,16 @@ function updateStatusPanel() {
   }
 }
 
-// Display the array of coins with their full details
-function displayCoins(coins: Array<{ x: number; y: number; pos: number }>) {
+// Display the player's coins
+function displayCoins(coins: Array<{ i: number; j: number; serial: number }>) {
   if (coins.length === 0) {
     statusPanel.innerHTML = "No coins available to display.";
     return;
   }
   const coinList = coins
-    .map((coin) => `(${coin.x}, ${coin.y}, ${coin.pos})`) // Include `pos` in the display
+    .map((coin) => `{i: ${coin.i}, j: ${coin.j}, serial: ${coin.serial}}`)
     .join(", ");
   statusPanel.innerHTML = `Coins: ${coinList}`;
 }
-
 // Call Functions
 CacheGrid();
