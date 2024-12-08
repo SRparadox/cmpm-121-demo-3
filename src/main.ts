@@ -118,16 +118,55 @@ const LatLngFlyweight = (() => {
   };
 })();
 
-// Update CacheGrid to generate caches dynamically around the player
+// Define the Memento interface
+interface Momento<T> {
+  toMomento(): T;
+  fromMomento(momento: T): void;
+}
+
+// Define MarkerState to save and restore marker data
+class MarkerState implements Momento<string> {
+  i: number;
+  j: number;
+  numCoins: number;
+
+  constructor(i: number, j: number, numCoins: number) {
+    this.i = i;
+    this.j = j;
+    this.numCoins = numCoins;
+  }
+
+  toMomento(): string {
+    return JSON.stringify({ i: this.i, j: this.j, numCoins: this.numCoins });
+  }
+
+  fromMomento(momento: string): void {
+    const state = JSON.parse(momento);
+    this.i = state.i;
+    this.j = state.j;
+    this.numCoins = state.numCoins;
+  }
+}
+
+// Flyweight storage for marker states
+const markerStateCache = new Map<string, MarkerState>();
+
+// Update CacheGrid to save and restore states
 function CacheGrid(centerLat: number, centerLng: number) {
-  // Clear existing markers
   map.eachLayer((layer) => {
     if (layer instanceof leaflet.Marker && layer !== playerMarker) {
+      const position = layer.getLatLng();
+      const key = `${position.lat},${position.lng}`;
+      const coins = retrieveMarkerCoins(layer);
+
+      markerStateCache.set(
+        key,
+        new MarkerState(position.lat, position.lng, coins.length),
+      );
       map.removeLayer(layer);
     }
   });
 
-  // Generate new caches around the updated position
   for (
     let latOffset = -NEIGHBORHOOD_SIZE;
     latOffset < NEIGHBORHOOD_SIZE;
@@ -144,30 +183,47 @@ function CacheGrid(centerLat: number, centerLng: number) {
       const j = parseFloat(
         (centerLng + lngOffset * TILE_DEGREES).toFixed(4),
       );
-      const currentCords = `${i},${j}`;
-      const deterministicRandom = luck(currentCords);
+      const key = `${i},${j}`;
 
-      if (deterministicRandom < CACHE_SPAWN_PROBABILITY) {
-        spawnMarker(i, j);
+      if (markerStateCache.has(key)) {
+        const state = markerStateCache.get(key)!;
+        spawnMarker(state.i, state.j, state.numCoins);
+      } else {
+        const deterministicRandom = luck(`${i},${j}`);
+        if (deterministicRandom < CACHE_SPAWN_PROBABILITY) {
+          spawnMarker(i, j);
+        }
       }
     }
   }
 }
 
-// Refactored spawnMarker function to use Flyweight for position
-function spawnMarker(i: number, j: number) {
-  const position = LatLngFlyweight.get(i, j); // Use Flyweight for coordinates
+//Added the ability to
+function spawnMarker(i: number, j: number, numCoins: number = 0) {
+  // Use Flyweight for coordinates
+  const position = LatLngFlyweight.get(i, j);
   const localCoins: Array<{ i: number; j: number; serial: number }> = [];
-  generateLocalCoins(i, j, localCoins);
 
+  // Populate local coins from the state or generate new ones
+  if (numCoins != 0) {
+    for (let serial = 1; serial <= numCoins; serial++) {
+      localCoins.push({ i, j, serial });
+    }
+  } else {
+    generateLocalCoins(i, j, localCoins);
+  }
+
+  // Create a cache marker at the position
   const cacheMarker = leaflet.marker(position);
 
+  // Create popup content elements
   const popupContent = document.createElement("div");
   const coinCountDisplay = document.createElement("p");
   const coinListDisplay = document.createElement("p");
   const retrieveButton = document.createElement("button");
   const depositButton = document.createElement("button");
 
+  // Setup the initial state of the popup
   retrieveButton.textContent = "Retrieve";
   depositButton.textContent = "Deposit";
   coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
@@ -178,39 +234,43 @@ function spawnMarker(i: number, j: number) {
     } else {
       coinListDisplay.textContent = `Coin Coordinates: ${
         localCoins
-          .map(
-            (coin) => `{i: ${coin.i}, j: ${coin.j}, serial: ${coin.serial}}`,
-          )
+          .map((coin) => `{i: ${coin.i}, j: ${coin.j}, serial: ${coin.serial}}`)
           .join(", ")
       }`;
     }
   };
   updateCoinListDisplay();
 
+  // Event handler to retrieve a coin
   retrieveButton.addEventListener("click", () => {
     retrieveCoin(localCoins);
     coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
     updateCoinListDisplay();
   });
 
+  // Event handler to deposit a coin
   depositButton.addEventListener("click", () => {
     depositCoin(localCoins);
     coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
     updateCoinListDisplay();
   });
 
+  // Assemble popup content
   popupContent.appendChild(coinCountDisplay);
   popupContent.appendChild(coinListDisplay);
   popupContent.appendChild(retrieveButton);
   popupContent.appendChild(depositButton);
 
+  // Bind popup to the cache marker
   cacheMarker.bindPopup(popupContent);
 
+  // Ensure the popup updates when opened
   cacheMarker.on("popupopen", () => {
     coinCountDisplay.textContent = `Coins: ${localCoins.length}`;
     updateCoinListDisplay();
   });
 
+  // Add the cache marker to the map
   cacheMarker.addTo(map);
 }
 
@@ -252,6 +312,20 @@ function generateLocalCoins(
   for (let count = 0; count < temp1; count++) {
     localCoins.push({ i, j, serial: count + 1 });
   }
+}
+
+// Helper to retrieve coins from a marker (if applicable)
+function retrieveMarkerCoins(marker: leaflet.Marker): Array<number> {
+  const popupContent = marker.getPopup()?.getContent();
+  if (popupContent instanceof HTMLDivElement) {
+    const coinListDisplay = popupContent.querySelector("p:last-child");
+    if (coinListDisplay) {
+      // Extract coin list from the display
+      const coins = JSON.parse(coinListDisplay.textContent || "[]");
+      return coins;
+    }
+  }
+  return [];
 }
 
 // Update the status panel with player's coins
