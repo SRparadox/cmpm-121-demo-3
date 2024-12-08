@@ -66,6 +66,43 @@ let playerPoints = playerCoins.length;
 const statusPanel = document.querySelector<HTMLDivElement>("#statusPanel")!;
 statusPanel.innerHTML = "No coins yet...";
 
+// Update Player Position to new coords
+// Used ChatGPT to for help in the logic on how to use pan to and create new offset coords
+function PlayerPosChange(latOffset: number, lngOffset: number) {
+  // Update player's position
+  const newLat = playerMarker.getLatLng().lat + latOffset;
+  const newLng = playerMarker.getLatLng().lng + lngOffset;
+
+  // Update player marker's position
+  playerMarker.setLatLng([newLat, newLng]);
+
+  // Center the map on the new position
+  map.panTo([newLat, newLng]);
+
+  // Regenerate visible cache locations
+  CacheGrid(newLat, newLng);
+}
+
+//Move up
+document.getElementById("north")?.addEventListener("click", () => {
+  PlayerPosChange(TILE_DEGREES, 0);
+});
+
+//Move down
+document.getElementById("south")?.addEventListener("click", () => {
+  PlayerPosChange(-TILE_DEGREES, 0);
+});
+
+//Move Right
+document.getElementById("east")?.addEventListener("click", () => {
+  PlayerPosChange(0, TILE_DEGREES);
+});
+
+//Move Left
+document.getElementById("west")?.addEventListener("click", () => {
+  PlayerPosChange(0, -TILE_DEGREES);
+});
+
 // Flyweight factory to manage unique latitude-longitude pairs
 const LatLngFlyweight = (() => {
   const cache: Record<string, { lat: number; lng: number }> = {};
@@ -81,8 +118,16 @@ const LatLngFlyweight = (() => {
   };
 })();
 
-// Refactored CacheGrid function to use Flyweight. //Asked BRACE how to use flyweight method without using classes
-function CacheGrid() {
+// Update CacheGrid to generate caches dynamically around the player
+function CacheGrid(centerLat: number, centerLng: number) {
+  // Clear existing markers
+  map.eachLayer((layer) => {
+    if (layer instanceof leaflet.Marker && layer !== playerMarker) {
+      map.removeLayer(layer);
+    }
+  });
+
+  // Generate new caches around the updated position
   for (
     let latOffset = -NEIGHBORHOOD_SIZE;
     latOffset < NEIGHBORHOOD_SIZE;
@@ -94,10 +139,10 @@ function CacheGrid() {
       lngOffset++
     ) {
       const i = parseFloat(
-        (OAKES_CLASSROOM.lat + latOffset * TILE_DEGREES).toFixed(4),
+        (centerLat + latOffset * TILE_DEGREES).toFixed(4),
       );
       const j = parseFloat(
-        (OAKES_CLASSROOM.lng + lngOffset * TILE_DEGREES).toFixed(4),
+        (centerLng + lngOffset * TILE_DEGREES).toFixed(4),
       );
       const currentCords = `${i},${j}`;
       const deterministicRandom = luck(currentCords);
@@ -231,4 +276,4 @@ function displayCoins(coins: Array<{ i: number; j: number; serial: number }>) {
   statusPanel.innerHTML = `Coins: ${coinList}`;
 }
 // Call Functions
-CacheGrid();
+CacheGrid(globalLat, globalLng);
