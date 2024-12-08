@@ -96,6 +96,51 @@ function loadGameState() {
   }
 }
 
+// Reset game state function
+function resetGameState() {
+  // Confirm with the user before resetting
+  const userConfirmation = prompt(
+    "Are you sure you want to erase your game state? Type 'YES' to confirm.",
+  );
+
+  if (userConfirmation !== "YES") {
+    alert("Game reset canceled.");
+    return;
+  }
+
+  // Stop geolocation tracking if active
+  const sensorButton = document.getElementById("sensor") as HTMLButtonElement;
+  const isTracking = sensorButton?.dataset.tracking === "true";
+
+  if (isTracking) {
+    const watchId = Number(sensorButton.dataset.watchId);
+    navigator.geolocation.clearWatch(watchId);
+    sensorButton.textContent = "Enable Geolocation";
+    sensorButton.dataset.tracking = "false";
+  }
+
+  // Clear player coins
+  playerCoins.length = 0;
+
+  // Clear marker state cache
+  markerStateCache.clear();
+
+  // Reset player position to the initial location
+  playerMarker.setLatLng(OAKES_CLASSROOM);
+  map.panTo(OAKES_CLASSROOM);
+
+  // Regenerate the cache grid around the initial position
+  CacheGrid(globalLat, globalLng);
+
+  // Update the status panel
+  updateStatusPanel();
+
+  // Clear localStorage
+  globalThis.localStorage.removeItem("gameState");
+
+  alert("Game state has been reset!");
+}
+
 // Add a marker to represent the player with the red icon
 const playerMarker = leaflet.marker(OAKES_CLASSROOM, { icon: redIcon });
 playerMarker.bindTooltip("That's you!");
@@ -144,6 +189,9 @@ document.getElementById("east")?.addEventListener("click", () => {
 document.getElementById("west")?.addEventListener("click", () => {
   PlayerPosChange(0, -TILE_DEGREES);
 });
+
+// Add an event listener for the reset button
+document.getElementById("reset")?.addEventListener("click", resetGameState);
 
 // Add event listener for enabling/disabling geolocation-based position updates
 //Used ChatGPT for help regarding the tracking and geolocation logics due to me not being familiar with how to use them.
