@@ -55,23 +55,35 @@ const redIcon = leaflet.icon({
   shadowSize: [41, 41],
 });
 
+// Track player's movement history
+const movementHistory: Array<[number, number]> = [[globalLat, globalLng]];
+const movementPolyline = leaflet.polyline(movementHistory, { color: "red" })
+  .addTo(map);
+
 // Save data to local storage
 //Asked brace how to use localStorage and save states
 //Used CHATGPT to fix an error where had to add globalTHis
+// Modify the saveGameState function to include movementHistory
 function saveGameState() {
   const gameState = {
     playerPosition: playerMarker.getLatLng(),
     playerCoins,
     markerStates: Array.from(markerStateCache.entries()),
+    movementHistory, // Save movement history
   };
   globalThis.localStorage.setItem("gameState", JSON.stringify(gameState));
 }
 
+// Modify the loadGameState function to restore movement history
 function loadGameState() {
   const savedState = globalThis.localStorage.getItem("gameState");
   if (savedState) {
-    const { playerPosition, playerCoins: savedCoins, markerStates } = JSON
-      .parse(savedState);
+    const {
+      playerPosition,
+      playerCoins: savedCoins,
+      markerStates,
+      movementHistory: savedHistory,
+    } = JSON.parse(savedState);
 
     // Restore player position
     playerMarker.setLatLng(playerPosition);
@@ -90,6 +102,12 @@ function loadGameState() {
       );
     }
 
+    // Restore movement history and polyline
+    if (savedHistory) {
+      movementHistory.splice(0, movementHistory.length, ...savedHistory);
+      movementPolyline.setLatLngs(movementHistory);
+    }
+
     // Regenerate the grid to apply restored markers
     CacheGrid(playerPosition.lat, playerPosition.lng);
     updateStatusPanel();
@@ -97,12 +115,11 @@ function loadGameState() {
 }
 
 // Reset game state function
+// Update the resetGameState function to clear the movement history
 function resetGameState() {
-  // Confirm with the user before resetting
   const userConfirmation = prompt(
     "Are you sure you want to erase your game state? Type 'YES' to confirm.",
   );
-
   if (userConfirmation !== "YES") {
     alert("Game reset canceled.");
     return;
@@ -111,7 +128,6 @@ function resetGameState() {
   // Stop geolocation tracking if active
   const sensorButton = document.getElementById("sensor") as HTMLButtonElement;
   const isTracking = sensorButton?.dataset.tracking === "true";
-
   if (isTracking) {
     const watchId = Number(sensorButton.dataset.watchId);
     navigator.geolocation.clearWatch(watchId);
@@ -128,6 +144,10 @@ function resetGameState() {
   // Reset player position to the initial location
   playerMarker.setLatLng(OAKES_CLASSROOM);
   map.panTo(OAKES_CLASSROOM);
+
+  // Clear movement history and update polyline
+  movementHistory.splice(0, movementHistory.length, [globalLat, globalLng]);
+  movementPolyline.setLatLngs(movementHistory);
 
   // Regenerate the cache grid around the initial position
   CacheGrid(globalLat, globalLng);
@@ -154,6 +174,7 @@ statusPanel.innerHTML = "No coins yet...";
 
 // Update Player Position to new coords
 // Used ChatGPT to for help in the logic on how to use pan to and create new offset coords
+// Modify the existing PlayerPosChange function to update movement history
 function PlayerPosChange(latOffset: number, lngOffset: number) {
   // Update player's position
   const newLat = playerMarker.getLatLng().lat + latOffset;
@@ -165,9 +186,17 @@ function PlayerPosChange(latOffset: number, lngOffset: number) {
   // Center the map on the new position
   map.panTo([newLat, newLng]);
 
+  // Add new position to the movement history
+  movementHistory.push([newLat, newLng]);
+
+  // Update the polyline to include the new position
+  movementPolyline.setLatLngs(movementHistory);
+
   // Regenerate visible cache locations
   CacheGrid(newLat, newLng);
-  saveGameState(); // Save after position update
+
+  // Save the updated game state
+  saveGameState();
 }
 
 //Move up
@@ -514,6 +543,7 @@ CacheGrid(globalLat, globalLng);
 // Load state on game initialization
 globalThis.addEventListener("load", () => {
   loadGameState();
+  displayCoins(playerCoins);
 });
 
 // Save state when the game is closed
