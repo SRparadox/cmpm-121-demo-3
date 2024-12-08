@@ -338,22 +338,20 @@ class MarkerState implements Momento<string> {
 // Flyweight storage for marker states
 const markerStateCache = new Map<string, MarkerState>();
 
-// Update CacheGrid to save and restore states
-function CacheGrid(centerLat: number, centerLng: number) {
-  map.eachLayer((layer) => {
-    if (layer instanceof leaflet.Marker && layer !== playerMarker) {
-      const position = layer.getLatLng();
-      const key = `${position.lat},${position.lng}`;
-      const coins = retrieveMarkerCoins(layer);
+// Save the state of a single marker
+function saveMarkerState(marker: leaflet.Marker): void {
+  const position = marker.getLatLng();
+  const key = `${position.lat},${position.lng}`;
+  const coins = retrieveMarkerCoins(marker);
 
-      markerStateCache.set(
-        key,
-        new MarkerState(position.lat, position.lng, coins.length),
-      );
-      map.removeLayer(layer);
-    }
-  });
+  markerStateCache.set(
+    key,
+    new MarkerState(position.lat, position.lng, coins.length),
+  );
+}
 
+// Generate markers around a specific location
+function generateMarkersAround(centerLat: number, centerLng: number): void {
   for (
     let latOffset = -NEIGHBORHOOD_SIZE;
     latOffset < NEIGHBORHOOD_SIZE;
@@ -383,6 +381,22 @@ function CacheGrid(centerLat: number, centerLng: number) {
       }
     }
   }
+}
+
+// Clear existing markers from the map
+function clearMarkers(): void {
+  map.eachLayer((layer) => {
+    if (layer instanceof leaflet.Marker && layer !== playerMarker) {
+      saveMarkerState(layer); // Save the state before removing
+      map.removeLayer(layer);
+    }
+  });
+}
+
+// Main CacheGrid function refactored
+function CacheGrid(centerLat: number, centerLng: number): void {
+  clearMarkers(); // Step 1: Clear existing markers
+  generateMarkersAround(centerLat, centerLng); // Step 2: Generate new markers
 }
 
 //Added the ability to
