@@ -55,6 +55,47 @@ const redIcon = leaflet.icon({
   shadowSize: [41, 41],
 });
 
+// Save data to local storage
+//Asked brace how to use localStorage and save states
+//Used CHATGPT to fix an error where had to add globalTHis
+function saveGameState() {
+  const gameState = {
+    playerPosition: playerMarker.getLatLng(),
+    playerCoins,
+    markerStates: Array.from(markerStateCache.entries()),
+  };
+  globalThis.localStorage.setItem("gameState", JSON.stringify(gameState));
+}
+
+function loadGameState() {
+  const savedState = globalThis.localStorage.getItem("gameState");
+  if (savedState) {
+    const { playerPosition, playerCoins: savedCoins, markerStates } = JSON
+      .parse(savedState);
+
+    // Restore player position
+    playerMarker.setLatLng(playerPosition);
+    map.panTo(playerPosition);
+
+    // Restore player coins
+    playerCoins.length = 0;
+    playerCoins.push(...savedCoins);
+
+    // Restore marker states
+    markerStateCache.clear();
+    for (const [key, state] of markerStates) {
+      markerStateCache.set(
+        key,
+        new MarkerState(state.i, state.j, state.numCoins),
+      );
+    }
+
+    // Regenerate the grid to apply restored markers
+    CacheGrid(playerPosition.lat, playerPosition.lng);
+    updateStatusPanel();
+  }
+}
+
 // Add a marker to represent the player with the red icon
 const playerMarker = leaflet.marker(OAKES_CLASSROOM, { icon: redIcon });
 playerMarker.bindTooltip("That's you!");
@@ -81,6 +122,7 @@ function PlayerPosChange(latOffset: number, lngOffset: number) {
 
   // Regenerate visible cache locations
   CacheGrid(newLat, newLng);
+  saveGameState(); // Save after position update
 }
 
 //Move up
@@ -342,7 +384,7 @@ function spawnMarker(i: number, j: number, numCoins: number = 0) {
   cacheMarker.addTo(map);
 }
 
-// Retrieve a coin from the local marker
+// Auto-save upon coin retrieval or deposit
 function retrieveCoin(
   localCoins: Array<{ i: number; j: number; serial: number }>,
 ) {
@@ -351,12 +393,12 @@ function retrieveCoin(
     playerCoins.push(retrievedCoin);
     playerPoints = playerCoins.length;
     updateStatusPanel();
+    saveGameState(); // Save after coin retrieval
   } else {
     alert("No coins available to retrieve at this cache.");
   }
 }
 
-// Deposit a player coin into the local marker's coins
 function depositCoin(
   localCoins: Array<{ i: number; j: number; serial: number }>,
 ) {
@@ -365,6 +407,7 @@ function depositCoin(
     localCoins.push(depositedCoin);
     playerPoints = playerCoins.length;
     updateStatusPanel();
+    saveGameState(); // Save after coin deposit
   } else {
     alert("You have no coins to deposit.");
   }
@@ -419,3 +462,13 @@ function displayCoins(coins: Array<{ i: number; j: number; serial: number }>) {
 }
 // Call Functions
 CacheGrid(globalLat, globalLng);
+
+// Load state on game initialization
+globalThis.addEventListener("load", () => {
+  loadGameState();
+});
+
+// Save state when the game is closed
+globalThis.addEventListener("beforeunload", () => {
+  saveGameState();
+});
