@@ -103,6 +103,73 @@ document.getElementById("west")?.addEventListener("click", () => {
   PlayerPosChange(0, -TILE_DEGREES);
 });
 
+// Add event listener for enabling/disabling geolocation-based position updates
+//Used ChatGPT for help regarding the tracking and geolocation logics due to me not being familiar with how to use them.
+//Sensor generates a grid around the newly given player coords, also added a way to stop geotracking
+document.getElementById("sensor")?.addEventListener("click", function () {
+  const button = this as HTMLButtonElement;
+  const isTracking = button.dataset.tracking === "true";
+
+  if (!isTracking) {
+    // Start geolocation tracking
+    if (!navigator.geolocation) {
+      alert("Geolocation is not supported by your browser.");
+      return;
+    }
+
+    button.textContent = "Stop Geolocation";
+    button.dataset.tracking = "true";
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+
+        // Update player's position to current geolocation
+        playerMarker.setLatLng([latitude, longitude]);
+        map.panTo([latitude, longitude]);
+
+        // Generate markers immediately around the new position
+        CacheGrid(latitude, longitude);
+      },
+      (error) => {
+        console.error("Error retrieving geolocation:", error);
+        alert("Unable to retrieve your location.");
+      },
+      {
+        enableHighAccuracy: true, // Use GPS if available
+      },
+    );
+
+    // Store watchId to clear later
+    button.dataset.watchId = String(watchId);
+
+    // Trigger immediate marker generation using the current player position
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+
+        // Update player's position and generate markers
+        playerMarker.setLatLng([latitude, longitude]);
+        map.panTo([latitude, longitude]);
+        CacheGrid(latitude, longitude);
+      },
+      (error) => {
+        console.error("Error retrieving initial geolocation:", error);
+        alert("Unable to retrieve your initial location.");
+      },
+      {
+        enableHighAccuracy: true,
+      },
+    );
+  } else {
+    // Stop geolocation tracking
+    const watchId = Number(button.dataset.watchId);
+    navigator.geolocation.clearWatch(watchId);
+    button.textContent = "Enable Geolocation";
+    button.dataset.tracking = "false";
+  }
+});
+
 // Flyweight factory to manage unique latitude-longitude pairs
 const LatLngFlyweight = (() => {
   const cache: Record<string, { lat: number; lng: number }> = {};
@@ -119,6 +186,7 @@ const LatLngFlyweight = (() => {
 })();
 
 // Define the Memento interface
+// Used the example given in the slides for reference. Used Brace to explain what and ow Momento worked, and used ChatGPT for how to create interfaces
 interface Momento<T> {
   toMomento(): T;
   fromMomento(momento: T): void;
